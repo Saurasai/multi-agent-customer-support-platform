@@ -13,6 +13,12 @@ generation into independent agents coordinated by LangGraph.
 
 
 <img width="1912" height="906" alt="image" src="https://github.com/user-attachments/assets/a4936b52-7ce7-43be-992d-d651a7e2e875" />
+<img width="1902" height="898" alt="image" src="https://github.com/user-attachments/assets/2b112eb7-49a5-457b-bf21-513f8bbf9b29" />
+<img width="1902" height="898" alt="image" src="https://github.com/user-attachments/assets/417425ce-0e88-436f-b4b9-b507d67a61b0" />
+<img width="1911" height="878" alt="image" src="https://github.com/user-attachments/assets/7c536972-96e2-4f11-b18e-c075dd6e76b5" />
+
+
+
 <img width="1905" height="897" alt="image" src="https://github.com/user-attachments/assets/6f4b414f-1f91-4c33-9640-c2878403aa66" />
 
 
