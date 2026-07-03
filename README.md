@@ -272,6 +272,250 @@ trace instead of a simulated animation.
 
 ------------------------------------------------------------------------
 
+# 🛡️ Agent Safety & Guardrails
+
+Although this project is intended as a portfolio demonstration, it incorporates several architectural guardrails to make the agent workflow more reliable, predictable, and easier to maintain. Rather than relying solely on prompt engineering, safety is enforced through the overall system architecture.
+
+---
+
+## Planner-Based Decision Making
+
+Instead of allowing the language model to directly invoke every capability, the system first routes every request through a dedicated **Planner Agent**.
+
+```
+User
+   │
+   ▼
+Planner
+   │
+   ├── Retriever
+   │
+   ├── Researcher
+   │
+   └── Support
+```
+
+The planner determines **what capabilities are required** rather than deciding how the workflow executes.
+
+Example planner output:
+
+```python
+{
+    "plan": [
+        "Check refund policy"
+    ],
+    "use_retriever": True,
+    "use_researcher": False
+}
+```
+
+This decouples planning from execution and prevents downstream agents from arbitrarily invoking tools.
+
+---
+
+## Principle of Least Privilege
+
+Each agent has a single responsibility.
+
+| Agent | Responsibility |
+|---------|----------------|
+| Planner | Decide required capabilities |
+| Retriever | Search the knowledge base |
+| Researcher | Execute external tools |
+| Support | Generate the final customer response |
+
+No agent performs responsibilities outside its own domain.
+
+For example:
+
+- Retriever never performs tool execution.
+- Researcher never generates customer-facing responses.
+- Support never directly calls external APIs.
+
+This separation significantly improves maintainability and reduces unintended behavior.
+
+---
+
+## Tool Whitelisting
+
+The Researcher Agent only has access to explicitly registered tools.
+
+```python
+TOOLS = {
+    "lookup_order": lookup_order,
+    "refund_policy": refund_policy,
+    "shipping_policy": shipping_policy,
+    "create_ticket": create_ticket,
+}
+```
+
+The LLM cannot invoke arbitrary Python functions.
+
+Only registered tools can ever be executed.
+
+This provides a simple but effective execution boundary.
+
+---
+
+## Structured Tool Outputs
+
+Tool responses are returned as structured dictionaries rather than plain text.
+
+Example:
+
+```python
+{
+    "success": True,
+    "order_id": "ORD002",
+    "status": "Processing",
+    "estimated_delivery": "Tomorrow"
+}
+```
+
+instead of
+
+```
+Processing
+```
+
+Benefits:
+
+- easier downstream reasoning
+- deterministic parsing
+- consistent API responses
+- reduced hallucinations
+
+---
+
+## Structured LLM Outputs
+
+Every LLM response is validated using **Pydantic models**.
+
+Planner Output
+
+```python
+class PlannerOutput(BaseModel):
+    plan: list[str]
+    use_retriever: bool
+    use_researcher: bool
+```
+
+Support Output
+
+```python
+class SupportResponse(BaseModel):
+    resolution: str
+    confidence: float
+    escalate: bool
+    sources: list[str]
+    tools_used: list[str]
+```
+
+This guarantees predictable outputs and prevents malformed JSON from propagating through the application.
+
+---
+
+## Knowledge Grounding (RAG)
+
+The Support Agent never answers solely from the model's internal knowledge.
+
+Instead, responses are grounded using:
+
+- retrieved documents
+- tool outputs
+- conversation history
+
+If the required information is unavailable, the prompt instructs the model to explicitly acknowledge that it does not know rather than fabricating an answer.
+
+---
+
+## Prompt-Level Guardrails
+
+The Support Agent is instructed to:
+
+- never hallucinate
+- answer only using supplied context
+- trust tool outputs over retrieved documents when conflicts occur
+- escalate when appropriate
+
+These prompt-level instructions complement the architectural guardrails.
+
+---
+
+## Typed Shared State
+
+All communication between agents occurs through a strongly typed LangGraph state.
+
+```python
+class AgentState(TypedDict):
+
+    messages: ...
+
+    plan: ...
+
+    retrieved_docs: ...
+
+    tool_results: ...
+
+    final_response: ...
+```
+
+This makes information flow explicit and prevents agents from mutating unrelated portions of the state.
+
+---
+
+# Current Limitations
+
+This project intentionally focuses on demonstrating multi-agent orchestration rather than implementing a complete production security layer.
+
+The following safeguards are not yet implemented:
+
+| Feature | Status |
+|----------|---------|
+| Prompt Injection Detection | ❌ |
+| Input Moderation | ❌ |
+| Output Moderation | ❌ |
+| Authentication | ❌ |
+| Authorization | ❌ |
+| Rate Limiting | ❌ |
+| PII Detection & Redaction | ❌ |
+| Human Approval for Sensitive Actions | ❌ |
+| Audit Logging | ❌ |
+
+---
+
+# Future Security Improvements
+
+For a production deployment, the following enhancements would be added:
+
+- Prompt injection detection before planner execution
+- Input and output moderation using dedicated safety models
+- Authentication and API key management
+- Role-based authorization for sensitive tools
+- Human approval workflow before executing critical actions
+- Tool argument validation using strict schemas
+- Rate limiting and abuse prevention
+- Personally Identifiable Information (PII) detection and masking
+- Comprehensive audit logs for every agent execution
+- LangSmith tracing and observability
+
+---
+
+## Safety Philosophy
+
+Rather than relying entirely on prompt engineering, this project adopts an **architecture-first approach** to safety.
+
+The core principles are:
+
+- Separate planning from execution.
+- Restrict each agent to a single responsibility.
+- Explicitly whitelist executable tools.
+- Exchange structured data instead of free-form text.
+- Ground responses using retrieved knowledge and trusted tool outputs.
+- Validate every model response before it reaches the client.
+
+These design choices make the system easier to reason about, easier to debug, and significantly more reliable than a monolithic single-agent chatbot.
+
 # Problems Encountered
 
 ## sentence-transformers missing
